@@ -17,7 +17,6 @@ function handler (req, res) {
   });
 }
 
-var games = [];
 var waiting = null;
 
 io.sockets.on('connection', function (socket) {
@@ -26,6 +25,7 @@ io.sockets.on('connection', function (socket) {
     socket.name = name;
     socket.choice = null;
     socket.score = 0;
+    socket.tiesInARow = 0;
     if(waiting)
     {
       waiting.opponent = socket;
@@ -77,17 +77,31 @@ io.sockets.on('connection', function (socket) {
           socket.score += points;
           socket.emit("status", myChoice + " VS " + theirChoice + " WINNER!");
           socket.opponent.emit("status", theirChoice + " VS " + myChoice + " LOSER!");
+          socket.tiesInARow = 0;
+          socket.opponent.tiesInARow = 0;
         }
         else if(outcome == 'lose')
         {
+          socket.tiesInARow = 0;
+          socket.opponent.tiesInARow = 0;
           socket.opponent.score += points;
           socket.emit("status", myChoice + " VS " + theirChoice + " LOSER!");
           socket.opponent.emit("status",  theirChoice + " VS " + myChoice + " WINNER!");
         }
-        else
+        else // tie
         {
-          socket.emit("status", myChoice + " VS " + theirChoice + " TIE!");
-          socket.opponent.emit("status",  theirChoice + " VS " + myChoice + " TIE!");
+          socket.tiesInARow++;
+          var extraStatus = '';
+          if(socket.tiesInARow == 3)
+          {
+            socket.tiesInARow = 0;
+            socket.opponent.tiesInARow = 0;
+            socket.score = 0;
+            socket.opponent.score = 0;
+            extraStatus = " 3 Ties in a row. Lose your score."
+          }
+          socket.emit("status", myChoice + " VS " + theirChoice + " TIE!" + extraStatus);
+          socket.opponent.emit("status",  theirChoice + " VS " + myChoice + " TIE!" + extraStatus);
         }
         socket.emit("my_score", socket.score);
         socket.emit("their_score", socket.opponent.score);
